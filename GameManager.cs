@@ -10,6 +10,7 @@ public class GameManager : MonoBehaviour
 {
     
     public MothSettings moth_settings;
+    
 
    
     public float gravity = -15f;
@@ -18,10 +19,20 @@ public class GameManager : MonoBehaviour
     public float restitution = 0.9f;
 
     private Terrain terrain;
+    private LineDrawer draw;
 
     private List<Moth> moths = new List<Moth>();
     private List<Cannon> cannons = new List<Cannon>();
     private List<Cannonball> cannonballs = new List<Cannonball>();
+
+    // void Start()
+    // {
+    //     terrain = new Terrain();
+    //     terrain.Build();
+
+    //     BuildCannons();
+    // }
+    // !! remebert to comment out when u switch to sprites
 
     void Start()
     {
@@ -29,6 +40,13 @@ public class GameManager : MonoBehaviour
         terrain.Build();
 
         BuildCannons();
+
+        Camera cam = Camera.main;
+        cam.orthographic = true;
+        cam.orthographicSize = terrain.world_half_height;
+        cam.transform.position = new Vector3(0f, 0f, -10f);
+
+        draw = gameObject.AddComponent<LineDrawer>();
     }
 
     void Update()
@@ -44,6 +62,57 @@ public class GameManager : MonoBehaviour
         UpdateMoths(dt);
 
         Cleanup();
+
+        // !! remove later
+        Render();
+    }
+
+    // !! remove later
+    private void Render()
+    {
+        draw.Begin();
+
+        // scene bounds 
+        float W = terrain.world_half_width, H = terrain.world_half_height;
+        Color bounds = new Color(1f, 1f, 1f, 0.2f);
+        draw.Line(new Vector2(-W, -H), new Vector2(W, -H), bounds);
+        draw.Line(new Vector2(W, -H), new Vector2(W, H), bounds);
+        draw.Line(new Vector2(W, H), new Vector2(-W, H), bounds);
+        draw.Line(new Vector2(-W, H), new Vector2(-W, -H), bounds);
+
+        // terrain
+        foreach (Surface s in terrain.Surfaces)
+            draw.Line(s.A, s.B, s.type == SurfaceType.Ground ? Color.green : Color.gray, 0.12f);
+
+        // light
+        draw.Circle(terrain.light_source, terrain.light_radius, Color.yellow, 32, 0.15f);
+
+        // cannons
+        foreach (Cannon c in cannons)
+        {
+            Vector2 dir = new Vector2(Mathf.Cos(c.angle * Mathf.Deg2Rad), Mathf.Sin(c.angle * Mathf.Deg2Rad));
+            draw.Circle(c.position, 0.3f, Color.white);
+            draw.Line(c.position, c.position + dir * 0.8f, Color.white, 0.12f);
+        }
+
+        // cannonballs
+        foreach (Cannonball b in cannonballs)
+            draw.Circle(b.Position, b.Radius, Color.red, 16);
+
+        // moths
+        foreach (Moth m in moths)
+        {
+            foreach (var link in Moth.Links)
+                draw.Line(m.points[link.a].position, m.points[link.b].position, Color.cyan, 0.05f);
+
+            foreach (VerletPoint p in m.points)
+                draw.Circle(p.position, p.radius, Color.magenta, 8, 0.04f);
+
+            VerletPoint body = m.points[Moth.Body];
+            draw.Circle(body.position, body.radius, Color.white, 12, 0.06f);
+        }
+
+        draw.End();
     }
 
     private void BuildCannons()
